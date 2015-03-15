@@ -1,0 +1,502 @@
+#include <Servo.h>
+
+Servo myservo;  // create servo object to control a servo 
+ 
+int potpin = 0;  // analog pin used to connect the potentiometer
+int val;    // variable to read the value from the analog pin 
+
+enum safety {DAMAGED, SAFE};
+
+safety northSide = {DAMAGED};
+safety eastSide = {DAMAGED};
+safety westSide = {DAMAGED};
+
+//-------^&UP are motor
+//-------&DOWN button/led/linear potentiometer/potentiometer
+
+enum btn{ON,DEBOUNCE, OFF}; // our own type for button states
+btn state[] = {OFF, OFF, OFF};        // variable to store state
+
+
+int ledState [] = {LOW, LOW, LOW};
+int howLongItsBeen;
+int howLongToWait = 250;
+int lastTimeItHappened = 0;
+
+int timer;
+
+int northButton = 7;
+int eastButton = 5;
+int westButton = 6;
+
+int northernPress = 0;
+int previousNorthernPress = 0;
+
+int easternPress = 0;
+int previousEasternPress = 0;
+
+int westernPress = 0;
+int previousWesternPress = 0;
+
+const int ledPinNorth =  10;      // the number of the LED pin
+const int ledPinWest = 8;
+const int ledPinEast = 9;
+
+float blinkSpeedNorth = 0;
+float blinkSpeedEast = 0;
+float blinkSpeedWest = 0;
+
+float northernFuse; 
+float easternFuse;
+float westernFuse; 
+
+// Variables will change:
+
+long previousMillisNorth = 0;        // will store last time LED was updated
+long previousMillisEast = 0;
+long previousMillisWest = 0;
+
+// the follow variables is a long because the time, measured in miliseconds,
+// will quickly become a bigger number than can be stored in an int.
+long intervalNorth = 1000;   
+long intervalEast = 1000;
+long intervalWest = 1000;
+
+int hitCount = 0;
+
+int steps = 5;
+int rotation = 0;
+
+void setup(){
+  Serial.begin(9600);
+  
+   myservo.attach(2);  // attaches the servo on pin 2 to the servo object 
+  
+  pinMode(ledPinNorth, OUTPUT);
+  pinMode(ledPinEast, OUTPUT);
+  pinMode(ledPinWest, OUTPUT);
+  
+  pinMode(northButton, INPUT_PULLUP);
+  pinMode(eastButton, INPUT_PULLUP);
+  pinMode(westButton, INPUT_PULLUP);
+  
+  digitalWrite(ledPinNorth, LOW);
+  digitalWrite(ledPinEast, LOW);
+  digitalWrite(ledPinWest, LOW);
+  
+  hitCount = 0;
+  Serial.write(hitCount);
+  
+
+ }
+
+void loop(){
+  
+  
+  val = analogRead(potpin);            // reads the value of the potentiometer (value between 0 and 1023) 
+  val = map(val, 0, 1023, 0, 179);     // scale it to use it with the servo (value between 0 and 180) 
+  myservo.write(val);                  // sets the servo position according to the scaled value 
+  delay(15);                           // waits for the servo to get there 
+  
+  shipPosition();
+
+//  Serial.print("northern Press");
+//  Serial.print(northerPress);
+//  Serial.print("PREVIOUS NOrthern PRESSSS!");
+  if (northernPress == 0){
+    
+        buttonStepNorth();
+        
+  }
+  
+  if (easternPress == 0){
+    
+      
+        buttonStepEast();
+        
+  }
+  
+  if (westernPress == 0){
+    
+        buttonStepWest();
+        
+  }
+  // Serial.print("IM ALIBE");
+  if (northernPress > 0){
+     
+     
+     
+     ledBlinkNorth();
+     
+     if (intervalNorth < 10){
+       shipPosition();
+       //Serial.print("VAL");
+      // Serial.print(val);
+       if(northSide == DAMAGED){
+         
+       //  Serial.println("HIT FROM THE NORTH!");
+         Serial.write(255);
+        
+         hitCount++;
+         Serial.write(hitCount);
+         
+       }
+       
+       if(northSide == SAFE){
+         Serial.write(254);
+      
+        // Serial.println("NICE SAVE FROM THE NORTH!");
+         
+       }
+       
+       //previousNorthernPress++;
+       northernPress = 0;
+       digitalWrite(ledPinNorth, LOW);
+      // Serial.println("PREVIOUS NORTHERN PRESS");
+     ///  Serial.println(previousNorthernPress);
+     //  Serial.println("Northern Fress");
+      // Serial.println(northernPress);
+       intervalNorth = 1000;
+     }
+     
+  }
+  
+  if (easternPress > 0){
+    
+     
+    ledBlinkEast();
+    
+    if (intervalEast < 10){
+      shipPosition();
+     //  Serial.print("VAL");
+     //  Serial.print(val);
+       if(eastSide == DAMAGED){
+         
+         //Serial.println("HIT FROM THE EAST!");
+         Serial.write(255);
+        
+         hitCount++;
+         Serial.write(hitCount);
+         
+       }
+       
+       if(eastSide == SAFE){
+         
+         Serial.write(254);
+        
+         
+        // Serial.println("NICE SAVE FROM THE EAST!");
+         
+       }
+      
+     // previousEasternPress++;
+      easternPress = 0;
+      digitalWrite(ledPinEast, LOW);
+      
+     // Serial.println("PREVIOUS EASTERN PRESS");
+     //  Serial.println(previousEasternPress);
+     //  Serial.println("Eastern Fress");
+     //  Serial.println(easternPress);
+      intervalEast = 1000;
+    }
+  
+ 
+
+}
+
+if (westernPress > 0){
+    
+     ledBlinkWest();
+     
+     if (intervalWest < 10){
+       
+       shipPosition();
+     //  Serial.print("VAL");
+     //  Serial.print(val);
+       if(westSide == DAMAGED){
+         Serial.write(255);
+      
+         hitCount++;
+         Serial.write(hitCount);
+        // Serial.println("HIT FROM THE WEST!");
+         
+       }
+       
+       if(westSide == SAFE){
+         Serial.write(254);
+      
+        // Serial.println("NICE SAVE FROM THE WEST!");
+         
+       }
+       
+      // previousWesternPress++;
+       westernPress = 0;
+       digitalWrite(ledPinWest, LOW);
+      // Serial.println("PREVIOUS WESTERN PRESS");
+      // Serial.println(previousWesternPress);
+      // Serial.println("Western Fress");
+      // Serial.println(westernPress);
+       intervalWest = 1000;
+     }
+     
+  }
+
+
+
+    
+  
+}
+
+void buttonStepNorth() {
+
+  int reading = digitalRead(northButton);  // check pin reading
+  
+  //Serial.print("YO!");
+  
+  switch(state[0]) {
+    case OFF:
+      if (reading == LOW) {    //button is pressed
+      
+   
+        state[0] = DEBOUNCE;
+        timer = 2;
+        
+      } break;
+    case DEBOUNCE:
+      if (reading == LOW){
+        if (timer <= 0){
+          state[0] = ON;
+        }
+        
+        else timer--;
+      }else state[0] = OFF;
+      
+    case ON:
+      if (reading == HIGH) {   // button is released
+        
+       // Serial.print("PRESS"); 
+        northernPress ++;
+        northernFuse = analogRead(5);
+        blinkSpeedNorth = ((1/northernFuse) * 7000);
+       // Serial.println("BLINK SPEED NORTH");
+       // Serial.println(blinkSpeedNorth);
+        
+        state[0] = OFF;
+        
+        
+      } break;
+  }
+  
+  if (hitCount == 7){
+    
+    hitCount = 0;
+  }
+}
+
+void ledBlinkNorth(){
+  
+   unsigned long currentMillisNorth = millis();
+ 
+  if(currentMillisNorth - previousMillisNorth > intervalNorth) {
+    // save the last time you blinked the LED 
+    previousMillisNorth = currentMillisNorth;   
+
+    // if the LED is off turn it on and vice-versa:
+    if (ledState[0] == LOW)
+      ledState[0] = HIGH;
+    else
+      ledState[0] = LOW;
+
+    // set the LED with the ledState of the variable:
+    digitalWrite(ledPinNorth, ledState[0]);
+    intervalNorth = intervalNorth - blinkSpeedNorth;
+   // Serial.println("BLINK SPEED NORTH");
+    //Serial.println(blinkSpeedNorth);
+    
+    //Serial.println("INTERVAL NORTH");
+   // Serial.println(intervalNorth);
+    return;
+  }
+  
+ 
+  
+}
+
+
+void buttonStepEast() {
+
+  int reading = digitalRead(eastButton);  // check pin reading
+  
+  switch(state[1]) {
+    case OFF:
+      if (reading == LOW) {    //button is pressed
+        //Serial.println("ON");
+        
+      
+        state[1] = DEBOUNCE;
+        timer = 2;
+        
+      } break;
+    case DEBOUNCE:
+      if (reading == LOW){
+        if (timer <=0){
+          state[1] = ON;
+        }
+        
+        else timer--;
+      }else state[1] = OFF;
+    case ON:
+      if (reading == HIGH) {   // button is released
+        
+    //    Serial.print("PRESS"); 
+        easternPress ++;   
+        
+        easternFuse = analogRead(5);
+        blinkSpeedEast = ((1/easternFuse) * 7000);
+      //  Serial.println("BLINK SPEED EAST");
+       // Serial.println(blinkSpeedEast);
+       
+         state[1] = OFF;
+        
+      } break;
+  }
+}
+
+void ledBlinkEast(){
+  
+   unsigned long currentMillisEast = millis();
+ 
+  if(currentMillisEast - previousMillisEast > intervalEast) {
+    // save the last time you blinked the LED 
+    previousMillisEast = currentMillisEast;   
+
+    // if the LED is off turn it on and vice-versa:
+    if (ledState[1] == LOW)
+      ledState[1] = HIGH;
+    else
+      ledState[1] = LOW;
+
+    // set the LED with the ledState of the variable:
+    digitalWrite(ledPinEast, ledState[1]);
+    intervalEast = intervalEast - blinkSpeedEast;
+    //Serial.println("BLINK SPEED EAST");
+    //Serial.println(blinkSpeedEast);
+    
+   // Serial.println("INTERVAL EAST");
+   // Serial.println(intervalEast);
+    return;
+  }
+ 
+}
+
+
+
+void buttonStepWest() {
+
+  int reading = digitalRead(westButton);  // check pin reading
+  
+  switch(state[2]) {
+    case OFF:
+      if (reading == LOW) {    //button is pressed
+      //  Serial.println("ON");
+        
+      
+        state[2] = DEBOUNCE;
+        timer = 2;
+        
+      } break;
+    case DEBOUNCE:
+      if (reading == LOW){
+        if (timer <= 0){
+          state[2] = ON;
+        }
+        
+        else timer--;
+      }else state [2] = OFF;
+    case ON:
+      if (reading == HIGH) {   // button is released
+        
+        //Serial.print("PRESS"); 
+        westernPress ++;   
+        
+        westernFuse = analogRead(5);
+        blinkSpeedWest = ((1/westernFuse) * 7000);
+       // Serial.println("BLINK SPEED WEST");
+       // Serial.println(blinkSpeedWest);
+       
+         state[2] = OFF;
+        
+      } break;
+  }
+}
+
+void ledBlinkWest(){
+  
+   unsigned long currentMillisWest = millis();
+ 
+  if(currentMillisWest - previousMillisWest > intervalWest) {
+    // save the last time you blinked the LED 
+    previousMillisWest = currentMillisWest;   
+
+    // if the LED is off turn it on and vice-versa:
+    if (ledState[2] == LOW)
+      ledState[2] = HIGH;
+    else
+      ledState[2] = LOW;
+
+    // set the LED with the ledState of the variable:
+    digitalWrite(ledPinWest, ledState[2]);
+    intervalWest = intervalWest - blinkSpeedWest;
+      
+     
+ 
+   // Serial.println("BLINK SPEED West");
+   // Serial.println(blinkSpeedWest);
+    
+   // Serial.println("intervallll West");
+   // Serial.println(intervalWest);
+    return;
+  }
+  
+ 
+  
+}
+
+void shipPosition(){
+
+ if (val > 17 && val < 38){
+ //  Serial.print("IM HEREEEE");
+   northSide = DAMAGED;
+   eastSide = DAMAGED;
+   westSide = SAFE;
+   
+ }
+ 
+ if (val > 78 && val < 98){
+  // Serial.print("LOOK AT ME");
+   
+   northSide = SAFE;
+   eastSide = DAMAGED;
+   westSide = DAMAGED;
+ }
+ 
+ if (val > 145 && val <  168){
+  // Serial.print("DAWG IM TIRED");  
+   northSide = DAMAGED;
+   eastSide = SAFE;
+   westSide = DAMAGED;
+  
+}
+
+
+
+ if ((val < 17) || (val > 37 && val < 79)|| (val > 97 && val < 144) || (val > 167)) {
+   //Serial.print("Fart Jokes");
+   
+   northSide = DAMAGED;
+   eastSide = DAMAGED;
+   westSide = DAMAGED;
+
+ }
+ 
+}
